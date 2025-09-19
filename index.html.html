@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard | Power Amigo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* --- Basic styling for layout, navigation, sidebar, and content --- */
+    body { font-family: Arial; margin: 0; display: flex; }
+    header {
+      background: rgba(255, 255, 255, 0.9);
+      position: fixed; top: 0; width: 100%; z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .nav-container { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; max-width: 1200px; margin: auto; }
+    .nav-container a { color: #2a9d8f; font-weight: bold; margin-left: 20px; text-decoration: none; font-size: 18px; }
+    .nav-container a:hover { text-decoration: underline; }
+    .nav-right { display: flex; align-items: center; }
+    .search-icon { cursor: pointer; font-size: 20px; color: #2a9d8f; margin-left: 15px; }
+
+    .search-overlay {
+      display: none; position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      width: 60%; background: white; padding: 15px; border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000;
+    }
+    .search-container { display: flex; align-items: center; gap: 10px; }
+    .search-container input { padding: 10px; font-size: 16px; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+    .search-container button { padding: 10px 20px; background: #e76f51; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    .sidebar { width: 200px; background: #2a9d8f; color: white; height: 100vh; padding-top: 80px; position: fixed; top: 0; left: 0; }
+    .sidebar a { display: block; padding: 12px 20px; color: white; text-decoration: none; font-weight: bold; font-size: 16px; }
+    .sidebar a:hover { background: #248f7d; }
+
+    .main-content { margin-left: 200px; padding: 100px 40px; flex: 1; }
+    .sensor-controls { display: flex; gap: 15px; align-items: center; margin-bottom: 30px; }
+    .sensor-dropdown { position: relative; }
+    .sensor-toggle-btn {
+      background-color: #2a9d8f; color: white; border: none;
+      padding: 10px 20px; border-radius: 20px; font-size: 16px;
+      cursor: pointer; transition: background-color 0.3s;
+    }
+    .sensor-toggle-btn:hover { background-color: #248f7d; }
+    .dropdown-menu {
+      position: absolute; top: 110%; left: 0; background-color: white;
+      border: 1px solid #ccc; border-radius: 8px; width: 160px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15); z-index: 1000; display: none;
+    }
+    .dropdown-menu div { padding: 10px; cursor: pointer; }
+    .dropdown-menu div:hover { background-color: #f2f2f2; }
+
+    .cards { display: flex; gap: 20px; margin-bottom: 30px; }
+    .card { background: #f9f9f9; padding: 20px; border-radius: 10px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); flex: 1; min-width: 200px; }
+    .label { font-size: 14px; color: #444; margin-bottom: 5px; }
+    .value { font-size: 22px; font-weight: bold; color: #111; }
+
+    canvas { background: white; margin-top: 20px; }
+    .trend-controls, .csv-controls { display: flex; gap: 10px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+    select, button, input[type="date"] { padding: 8px 12px; border-radius: 6px; border: 1px solid #2a9d8f; background: white; font-size: 14px; }
+    button { background: #2a9d8f; color: white; cursor: pointer; }
+    h1, h2, h3 { color: #2a9d8f; }
+    .stats { margin-top: 10px; font-size: 16px; color: #333; }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation -->
+  <header>
+    <div class="nav-container">
+      <div><img src="images/logo.png" alt="Power Amigo Logo" height="40"/></div>
+      <div class="nav-right">
+        <a href="index.html">Home</a>
+        <a href="#">About Us</a>
+        <a href="#">Contact Us</a>
+        <a href="index.html">View Data</a>
+        <span class="search-icon" onclick="toggleSearch()">🔍</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Search overlay -->
+  <div id="searchOverlay" class="search-overlay">
+    <div class="search-container">
+      <input type="text" placeholder="Search ..." />
+      <button>SEARCH</button>
+    </div>
+  </div>
+
+  <!-- Sidebar Navigation -->
+  <div class="sidebar">
+    <a href="index.html">Dashboard</a>
+    <a href="Reports.html">Reports</a>
+    <a href="#">Setting</a>
+    <a href="index.html">Home</a>
+  </div>
+
+  <!-- Main Dashboard Content -->
+  <div class="main-content" id="dashboard">
+    <h1>Dashboard</h1>
+
+    <!-- Sensor selection dropdown and date picker -->
+    <div class="sensor-controls">
+      <div class="sensor-dropdown">
+        <button class="sensor-toggle-btn" onclick="toggleSensorMenu()">Select Sensor ▾</button>
+        <div id="sensorDropdown" class="dropdown-menu">
+          <div onclick="selectSensor('SENSOR_001')">Sensor A</div>
+          <div onclick="selectSensor('SENSOR_002')">Sensor B</div>
+        </div>
+      </div>
+      <div>
+        <label for="datePicker"><strong>Select Day:</strong></label>
+        <input type="date" id="datePicker" />
+        <button onclick="setToday()">Today</button>
+        <button onclick="setYesterday()">Yesterday</button>
+      </div>
+    </div>
+
+    <!-- Real-time current values -->
+    <div class="cards">
+      <div class="card"><div class="label">Current A (real-time)</div><div class="value" id="currentA">--</div></div>
+      <div class="card"><div class="label">Current B (real-time)</div><div class="value" id="currentB">--</div></div>
+      <div class="card"><div class="label">Current C (real-time)</div><div class="value" id="currentC">--</div></div>
+    </div>
+
+    <!-- Line Chart for current trend -->
+    <h2>Current Trend</h2>
+    <div class="trend-controls">
+      <label for="trendGran">Show Trend Granularity:</label>
+      <select id="trendGran">
+        <option value="15">15 min</option>
+        <option value="5">5 min</option>
+      </select>
+    </div>
+    <canvas id="chart" height="120"></canvas>
+    <div class="stats" id="stats">Max: --, Min: --, Avg: --</div>
+
+    <!-- CSV Export -->
+    <h3>Get the CSV</h3>
+    <div class="csv-controls">
+      <label for="csvGran">CSV Granularity:</label>
+      <select id="csvGran">
+        <option value="15">15 min</option>
+        <option value="5">5 min</option>
+        <option value="1">1 min</option>
+        <option value="0.5">30 sec</option>
+        <option value="0.25">15 sec</option>
+        <option value="0.0833">5 sec</option>
+      </select>
+      <button onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <script>
+    /* === API BASE ENDPOINT (use AWS address) === */
+    const API_BASE = "https://40btd9hsk0.execute-api.us-east-1.amazonaws.com/sensors";
+    let apiErrorShown = false; // Prevent duplicate alerts
+
+    /* --- Utility functions --- */
+    function getLocalDateString(dateObj=new Date()) { return dateObj.toISOString().slice(0,10); }
+    function toggleSearch(){const o=document.getElementById("searchOverlay");o.style.display=(o.style.display==="block")?"none":"block";}
+    function toggleSensorMenu(){const m=document.getElementById('sensorDropdown');m.style.display=(m.style.display==='block')?'none':'block';}
+    document.addEventListener('click',e=>{const m=document.getElementById('sensorDropdown');const b=document.querySelector('.sensor-toggle-btn');if(!b.contains(e.target)&&!m.contains(e.target)){m.style.display='none';}});
+
+    /* --- State variables --- */
+    let currentSensor=null;      // Current selected sensor ID
+    let allDaysData=[];          // Stores daily data arrays
+    let selectedDate=getLocalDateString();
+    let chart;
+    const ctx=document.getElementById('chart').getContext('2d');
+    const currentA=document.getElementById('currentA');
+    const currentB=document.getElementById('currentB');
+    const currentC=document.getElementById('currentC');
+    const statsEl=document.getElementById('stats');
+
+    /* --- Fetch daily data for given sensor and date --- */
+    async function fetchDayData(sensor,dateStr){
+      try {
+        const url=API_BASE;
+        const res=await fetch(url);
+        console.log('API Response status:', res.status);
+        if(!res.ok) {
+          console.error('API request failed with status:', res.status);
+          throw new Error(`API returned ${res.status}`);
+        }
+        const json=await res.json();
+        console.log('API Response data:', json); 
+        
+        // Check the data structure returned by the API
+        if(!json.items || json.items.length === 0){
+          console.log("No items found in API response for date:", dateStr);
+          allDaysData=allDaysData.filter(d=>d.date!==dateStr);
+          allDaysData.push({date:dateStr,data:[]});
+          apiErrorShown=false;
+          return;
+        }
+        
+        // Filter the data of the currently selected sensor
+        const filteredItems = json.items.filter(r => r.Sensor_id === sensor);
+        console.log(`The number of data points after filtering (Sensor ${sensor}):`, filteredItems.length);
+        
+        allDaysData=allDaysData.filter(d=>d.date!==dateStr);
+        allDaysData.push({
+          date:dateStr,
+          data:filteredItems.map(r=>({time:new Date(r.timestamp*1000),IA:r.IA,IB:r.IB,IC:r.IC}))
+        });
+        apiErrorShown=false;
+      } catch (err) {
+        if(!apiErrorShown){
+          alert("Failed to load data from API.");
+          apiErrorShown=true;
+        } else {
+          console.error("Failed to load data from API.");
+        }
+      }
+    }
+
+    /* --- Fetch latest real-time data point --- */
+    async function fetchLatestData(sensor){
+      try {
+        const url=API_BASE;
+        const res=await fetch(url);
+        console.log('Latest API Response status:', res.status);
+        if(!res.ok) {
+          console.error('Latest API request failed with status:', res.status);
+          throw new Error(`API returned ${res.status}`);
+        }
+        const json=await res.json();
+        console.log('Latest API Response data:', json); 
+        apiErrorShown=false;
+        
+        // Check the data structure returned by the API
+        if(!json.items || json.items.length === 0){
+          console.error("No items found in API response");
+          return null;
+        }
+        
+        // Filter the data of the currently selected sensor
+        const sensorItems = json.items.filter(r => r.Sensor_id === sensor);
+        if(sensorItems.length === 0){
+          console.error(`No data found for sensor: ${sensor}`);
+          return null;
+        }
+        
+        // Get the latest data point of the sensor (sort by timestamp, take the last one)
+        const latest = sensorItems[sensorItems.length - 1];
+        console.log('Latest data point for sensor', sensor, ':', latest);
+        
+        // Verify timestamp validity
+        const timestamp = latest.timestamp;
+        if (!timestamp || isNaN(timestamp)) {
+          console.error("Invalid timestamp from API:", timestamp);
+          return null;
+        }
+        return {time:new Date(timestamp*1000),IA:latest.IA,IB:latest.IB,IC:latest.IC};
+      } catch (err) {
+        if(!apiErrorShown){
+          alert("Failed to load data from API.");
+          apiErrorShown=true;
+        } else {
+          console.error("Failed to load data from API.");
+        }
+        return null;
+      }
+    }
+
+    /* --- Sensor selection logic --- */
+    async function selectSensor(sensor){
+      console.log("Select sensor:", sensor);
+      currentSensor=sensor;
+      
+      // Update button display text
+      document.querySelector('.sensor-toggle-btn').textContent = sensor + ' ▾';
+      // Hide drop-down menu
+      document.getElementById('sensorDropdown').style.display='none';
+      
+      // Update real-time data display immediately
+      const latest=await fetchLatestData(currentSensor);
+      if(latest){
+        currentA.innerText=`${latest.IA.toFixed(2)} A`;
+        currentB.innerText=`${latest.IB.toFixed(2)} A`;
+        currentC.innerText=`${latest.IC.toFixed(2)} A`;
+      }
+      
+      setToday();
+    }
+
+    /* --- Group raw data by chosen granularity --- */
+    function groupData(data,granSec){
+      const grouped=[],step=Math.max(1,Math.round(granSec/5));
+      for(let i=0;i<data.length;i+=step){
+        const chunk=data.slice(i,i+step);
+        const avg=k=>chunk.reduce((a,b)=>a+b[k],0)/chunk.length;
+        grouped.push({label:chunk[0].time.toTimeString().slice(0,5),IA:avg('IA'),IB:avg('IB'),IC:avg('IC')});
+      }
+      return grouped;
+    }
+
+    /* --- Render chart with grouped data --- */
+    async function renderChart(granMin=15){
+      if(!currentSensor)return;
+      const day=allDaysData.find(d=>d.date===selectedDate);
+      if(!day){statsEl.innerText=`No data for ${selectedDate}`;return;}
+      const grouped=groupData(day.data,granMin*60);
+      const labels=grouped.map(d=>d.label);
+      const IA=grouped.map(d=>d.IA);
+      const IB=grouped.map(d=>d.IB);
+      const IC=grouped.map(d=>d.IC);
+      const max=a=>Math.max(...a).toFixed(2);
+      const min=a=>Math.min(...a).toFixed(2);
+      const avg=a=>(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2);
+      statsEl.innerText=`Sensor ${currentSensor} (${selectedDate}) | Max A:${max(IA)},B:${max(IB)},C:${max(IC)} | Min A:${min(IA)},B:${min(IB)},C:${min(IC)} | Avg A:${avg(IA)},B:${avg(IB)},C:${avg(IC)}`;
+      const datasets=[
+        {label:'Current A',data:IA,borderColor:'#2a9d8f',fill:false},
+        {label:'Current B',data:IB,borderColor:'#e76f51',fill:false},
+        {label:'Current C',data:IC,borderColor:'#264653',fill:false}
+      ];
+      if(chart){chart.data.labels=labels;chart.data.datasets=datasets;chart.update();}
+      else{chart=new Chart(ctx,{type:'line',data:{labels,datasets},options:{responsive:true}});}
+    }
+
+    /* --- Date selectors --- */
+    async function setToday(){
+      selectedDate=getLocalDateString();
+      await fetchDayData(currentSensor,selectedDate);
+      document.getElementById('datePicker').value=selectedDate;
+      renderChart(parseInt(document.getElementById('trendGran').value));
+    }
+
+    async function setYesterday(){
+      const y=new Date();y.setDate(y.getDate()-1);
+      selectedDate=getLocalDateString(y);
+      await fetchDayData(currentSensor,selectedDate);
+      document.getElementById('datePicker').value=selectedDate;
+      renderChart(parseInt(document.getElementById('trendGran').value));
+    }
+
+    /* --- CSV Export --- */
+    async function exportCSV(){
+      if(!currentSensor)return;
+      const granSec=parseFloat(document.getElementById('csvGran').value)*60;
+      let csv='Date,Time,Current A,Current B,Current C\n';
+      for(const day of allDaysData){
+        const grouped=groupData(day.data,granSec);
+        grouped.forEach(d=>{csv+=`${day.date},${d.label},${d.IA.toFixed(2)},${d.IB.toFixed(2)},${d.IC.toFixed(2)}\n`;});
+      }
+      const blob=new Blob([csv],{type:'text/csv'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=`Sensor_${currentSensor}_all_data.csv`;a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* --- Event listeners --- */
+    document.getElementById('trendGran').addEventListener('change',e=>renderChart(parseInt(e.target.value)));
+    document.getElementById('datePicker').addEventListener('change',async e=>{
+      selectedDate=e.target.value;
+      await fetchDayData(currentSensor,selectedDate);
+      renderChart(parseInt(document.getElementById('trendGran').value));
+    });
+
+    /* --- Load sensors from API --- */
+    async function loadSensors(){
+      try{
+        console.log("Starting to load sensor data...");
+        const res=await fetch(API_BASE);
+        const json=await res.json();
+        console.log("API response:", json);
+
+        if(!json.items || json.items.length === 0){
+          console.log("The data returned by the API is empty or does not have the items field");
+          alert("No sensors found from API.");
+          return;
+        }
+
+        const sensors=[...new Set(json.items.map(r=>r.Sensor_id))];
+        console.log("Founded sensor:", sensors);
+        const dropdown=document.getElementById('sensorDropdown');
+        dropdown.innerHTML="";
+        sensors.forEach(id=>{
+          const div=document.createElement('div');
+          div.textContent=id;
+          div.onclick=()=>selectSensor(id);
+          dropdown.appendChild(div);
+        });
+        
+        // Automatically select the first sensor
+        if(sensors.length > 0){
+          selectSensor(sensors[0]);
+          document.querySelector('.sensor-toggle-btn').textContent = sensors[0] + ' ▾';
+        }
+      }catch(e){
+        console.error("Failed to load sensors",e);
+        alert("Error loading sensors, check console.");
+      }
+    }
+
+    /* --- Initialize page --- */
+    window.onload = loadSensors;
+
+    /* --- Real-time data updater --- */
+    setInterval(async ()=>{
+      if(!currentSensor)return;
+      const latest=await fetchLatestData(currentSensor);
+      if(!latest || !latest.time)return;
+      const today=getLocalDateString(latest.time);
+      let day=allDaysData.find(d=>d.date===today);
+      if(!day){
+        await fetchDayData(currentSensor,today);
+        day=allDaysData.find(d=>d.date===today);
+      }
+      day.data.push(latest);
+      currentA.innerText=`${latest.IA.toFixed(2)} A`;
+      currentB.innerText=`${latest.IB.toFixed(2)} A`;
+      currentC.innerText=`${latest.IC.toFixed(2)} A`;
+      if(selectedDate===today){
+        renderChart(parseInt(document.getElementById('trendGran').value));
+      }
+    },5000);
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
