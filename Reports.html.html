@@ -221,7 +221,7 @@ function getWeekString(date) {
 async function fetchRawData(sensor, start, end){
   try {
     console.log(`Get Data - Sensor: ${sensor}, Start time: ${start}, End time: ${end}`);
-    console.log(`Time range: ${new Date(start*1000)} 到 ${new Date(end*1000)}`);
+    console.log(`Time range: ${new Date(start*1000)} to ${new Date(end*1000)}`);
     
     const res=await fetch(API_BASE);
     if(!res.ok) throw new Error("API error");
@@ -290,7 +290,7 @@ async function renderWeekReport(){
   const end = new Date(start);
   end.setDate(start.getDate() + 7);
   
-  console.log(`Weekly report time range: ${start.toLocaleDateString()} 到 ${end.toLocaleDateString()}`);
+  console.log(`Weekly report time range: ${start.toLocaleDateString()} to ${end.toLocaleDateString()}`);
   
   const raw=await fetchRawData(currentSensor,Math.floor(start.getTime()/1000),Math.floor(end.getTime()/1000));
   weekData=aggregateRawData(raw,"daily");
