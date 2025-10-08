@@ -16,7 +16,7 @@ def _decimal_to_native(obj):
     if isinstance(obj, list):
         return [_decimal_to_native(i) for i in obj]
     if isinstance(obj, dict):
-return {k: _decimal_to_native(v) for k, v in obj.items()}
+        return {k: _decimal_to_native(v) for k, v in obj.items()}
     return obj
 
 def lambda_handler(event, context):
